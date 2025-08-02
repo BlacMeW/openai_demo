@@ -48,6 +48,35 @@ class _ChatScreenState extends State<ChatScreen> {
                 if (state is ChatSuccess || state is ChatError) {
                   _scrollToBottom();
                 }
+
+                // Show rate limit errors as SnackBar
+                if (state is ChatError && state.error.contains('Rate limit')) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Row(
+                        children: [
+                          const Icon(Icons.warning, color: Colors.white),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              state.error,
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                          ),
+                        ],
+                      ),
+                      backgroundColor: Colors.orange[700],
+                      duration: const Duration(seconds: 5),
+                      action: SnackBarAction(
+                        label: 'DISMISS',
+                        textColor: Colors.white,
+                        onPressed: () {
+                          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                        },
+                      ),
+                    ),
+                  );
+                }
               },
               builder: (context, state) {
                 if (state is ChatError) {
