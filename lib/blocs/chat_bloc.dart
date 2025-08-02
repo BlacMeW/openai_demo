@@ -38,11 +38,9 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       // Start streaming response with error handling
       final stream = openAIService.sendChatStream(
         newMessages,
-        onRateLimit: (retryAfter) {
+        onRateLimit: (message) {
           // Emit rate limit event for UI handling
-          add(ErrorOccurred(
-            'Rate limit exceeded. Please wait ${retryAfter.inSeconds} seconds before trying again.',
-          ));
+          add(ErrorOccurred(message));
         },
       );
 

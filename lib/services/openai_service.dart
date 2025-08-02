@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:http/http.dart' as http;
 import 'package:openai_demo/models/message_model.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -13,7 +14,7 @@ class OpenAIService {
     : _apiKey = dotenv.get('OPENAI_API_KEY'),
       _client = client ?? http.Client();
 
-  /// Sends a chat message to OpenAI with retry logic for rate limiting
+  /// Sends a chat message to OpenAI with intelligent rate limiting
   ///
   /// [messages] - List of conversation messages
   /// [maxRetries] - Maximum number of retry attempts (default: 3)
@@ -42,6 +43,7 @@ class OpenAIService {
             'content': m.content
           }).toList(),
           'stream': true,
+          'max_tokens': 100, // Limit response length to reduce rate limit risk
         };
 
         final request = http.Request('POST', uri)
@@ -56,24 +58,32 @@ class OpenAIService {
             throw Exception('Rate limit exceeded after $maxRetries retries');
           }
 
-          // Get retry delay from Retry-After header or use default
+          // Get retry delay from Retry-After header or use progressive backoff
           final retryAfterHeader = response.headers['retry-after'];
-          final retryDelay = _getRetryDelay(retryAfterHeader);
+          int retryDelay = _getRetryDelay(retryAfterHeader);
+
+          // Increase delay progressively for consecutive retries
+          retryDelay = retryDelay * (retryCount + 1);
+
+          // Cap at 30 seconds maximum
+          retryDelay = retryDelay.clamp(1, 30);
 
           // Notify user about rate limiting
           if (onRateLimit != null) {
-            onRateLimit('You\'re sending requests too fast. Please wait.');
+            onRateLimit('Rate limit exceeded. Please wait $retryDelay seconds...');
           }
 
-          // Wait before retrying
-          await Future.delayed(Duration(seconds: retryDelay));
+          // Wait before retrying with jitter to avoid thundering herd
+          final jitter = Duration(milliseconds: (500 * math.Random().nextDouble()).toInt());
+          await Future.delayed(Duration(seconds: retryDelay) + jitter);
           retryCount++;
           continue;
         }
 
         // Handle other HTTP errors
         if (response.statusCode != 200) {
-          throw Exception('Failed to load response: ${response.statusCode}');
+          final errorBody = await response.stream.bytesToString();
+          throw Exception('API Error ${response.statusCode}: ${errorBody.isNotEmpty ? errorBody : 'Unknown error'}');
         }
 
         // Process successful response
@@ -103,11 +113,11 @@ class OpenAIService {
       } catch (e) {
         // Handle network or other errors
         if (retryCount >= maxRetries) {
-          throw Exception('Failed to send message after $maxRetries retries: $e');
+          throw Exception('Failed to send message: ${e.toString().replaceAll(_apiKey, '***')}');
         }
 
         // Exponential backoff for non-rate-limit errors
-        final backoffDelay = 2 * (retryCount + 1);
+        final backoffDelay = (2 * (retryCount + 1)).clamp(1, 10);
         await Future.delayed(Duration(seconds: backoffDelay));
         retryCount++;
       }
