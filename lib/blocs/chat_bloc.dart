@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:openai_demo/models/message_model.dart';
-import 'package:openai_demo/services/openai_service.dart';
+import '../models/message_model.dart';
+import '../services/openai_service.dart';
 
 part 'chat_event.dart';
 part 'chat_state.dart';

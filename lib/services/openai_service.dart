@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:http/http.dart' as http;
-import 'package:openai_demo/models/message_model.dart';
+import '../models/message_model.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class OpenAIService {
